@@ -184,7 +184,7 @@ class Queue:
             is_bank = (i.provider == "bank_statements")
             user_tasks = task_count.get(i.user_id, 0)
 
-            global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
+            global_bank_penalty = 0 if (is_bank and user_tasks < 3) else 1
             per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
 
             # If queue internal age is >= 5 minutes, bank_statements become time-sensitive
@@ -192,7 +192,7 @@ class Queue:
             # tasks thar have an older timestam because timestamp remains a later sort key.
 
             if is_bank and queue_internal_age >= 300:
-                global_bank_penalty = 1
+                global_bank_penalty = 0
                 per_user_bank_penalty = 0
 
             ts = self._timestamp_for_task(i)
@@ -316,5 +316,6 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
 
