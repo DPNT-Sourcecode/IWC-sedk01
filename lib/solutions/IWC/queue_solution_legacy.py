@@ -138,16 +138,17 @@ class Queue:
 
         return self.size
     
-    def _bank_task_age_seconds(self, task: TaskSubmission) -> int | None:
-        """Return the bank task age in seconds relative to the newest task in the queue.
+    def _bank_internal_age_seconds(self) -> int:
+        """Return internal age (seconds) between earliest and latest bank_statements tasks.
 
-        If task.timestamp or the queue has no valid datetimes, returns None.
+        Compares the earliest and latest timestamps among tasks with provider == "bank_statements".
+        Returns 0 if fewer than 2 bank tasks or no valid datetime timestamps.
         """
-        newest = self._newest_timestamp_in_queue()
-        ts = self._timestamp_for_task(task)
-        if newest is None or not isinstance(ts, datetime):
-            return None
-        return int((newest - ts).total_seconds())
+        bank_ts = [self._timestamp_for_task(t) for t in self._queue if t.provider == "bank_statements"]
+        datetimes = [ts for ts in bank_ts if isinstance(ts, datetime)]
+        if len(datetimes) < 2:
+            return 0
+        return int((max(datetimes) - min(datetimes)).total_seconds())
     
     def dequeue(self):
         if self.size == 0:
@@ -184,7 +185,8 @@ class Queue:
                 metadata["priority"] = priority_level
         
         # determine queue internal age once
-        queue_internal_age = self.age
+        # queue_internal_age = self.age
+        bank_internal_age = self._bank_internal_age_seconds()
 
 
         # # Enforce bank statements deprioritisation
@@ -217,8 +219,8 @@ class Queue:
             tb = self._timestamp_for_task(b)
             is_bank_a = (a.provider == "bank_statements")
             is_bank_b = (b.provider == "bank_statements")
-            time_sensitive_a = is_bank_a and queue_internal_age >= 300
-            time_sensitive_b = is_bank_b and queue_internal_age >= 300
+            time_sensitive_a = is_bank_a and bank_internal_age >= 300
+            time_sensitive_b = is_bank_b and bank_internal_age >= 300
 
             # If either side is a time-sensitive bank, enforce the "cannot skip older timestamps" rule pairwise.
             # If timestamps differ:
@@ -371,5 +373,6 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
 
