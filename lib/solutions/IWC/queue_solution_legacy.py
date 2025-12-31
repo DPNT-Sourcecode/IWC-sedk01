@@ -192,8 +192,8 @@ class Queue:
             # tasks thar have an older timestam because timestamp remains a later sort key.
 
             if is_bank and queue_internal_age >= 300:
-                global_bank_penalty = 0
-                per_user_bank_penalty = 1
+                global_bank_penalty = 1
+                per_user_bank_penalty = 0
 
             ts = self._timestamp_for_task(i)
             return (priority, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
@@ -316,4 +316,5 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
