@@ -146,7 +146,8 @@ class Queue:
         priority_timestamps = {}
         for user_id in user_ids:
             user_tasks = [t for t in self._queue if t.user_id == user_id]
-            earliest_timestamp = sorted(user_tasks, key=lambda t: t.timestamp)[0].timestamp
+            # user normalised timestamp for accurate ordering
+            earliest_timestamp = min(self._timestamp_for_task(t) for t in user_tasks)
             priority_timestamps[user_id] = earliest_timestamp
             task_count[user_id] = len(user_tasks)
 
@@ -170,15 +171,26 @@ class Queue:
                 metadata["group_earliest_timestamp"] = current_earliest
                 metadata["priority"] = priority_level
 
-        self._queue.sort(
-            key=lambda i: (
-                self._priority_for_task(i),
-                self._earliest_group_timestamp_for_task(i),
-                self._timestamp_for_task(i),
-            )
-        )
+        # Enforce bank statements deprioritisation
+        # - if user has < 3 tasks, bank_statements tasks go to end of global queue
+        # - if user has >= 3 tasks, bank_statements tasks get scheduled after user other tasks
+        def sort_key(i):
+            priority = self._priority_for_task(i)
+            group_ts = self._earliest_group_timestamp_for_task(i)
+            is_bank = (i.provider == "bank_statements")
+            user_tasks = task_count.get(i.user_id, 0)
+
+            global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
+            per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
+
+            ts = self._timestamp_for_task(i)
+            return (priority, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
+
+
+        self._queue.sort(key=sort_key)
 
         task = self._queue.pop(0)
+
         return TaskDispatch(
             provider=task.provider,
             user_id=task.user_id,
@@ -279,3 +291,4 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
