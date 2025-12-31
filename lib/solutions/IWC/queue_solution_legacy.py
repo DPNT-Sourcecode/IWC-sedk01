@@ -175,31 +175,77 @@ class Queue:
         queue_internal_age = self.age
 
 
-        # Enforce bank statements deprioritisation
-        # - if user has < 3 tasks, bank_statements tasks go to end of global queue
-        # - if user has >= 3 tasks, bank_statements tasks get scheduled after user other tasks
-        def sort_key(i):
-            priority = self._priority_for_task(i)
-            group_ts = self._earliest_group_timestamp_for_task(i)
-            is_bank = (i.provider == "bank_statements")
-            user_tasks = task_count.get(i.user_id, 0)
+        # # Enforce bank statements deprioritisation
+        # # - if user has < 3 tasks, bank_statements tasks go to end of global queue
+        # # - if user has >= 3 tasks, bank_statements tasks get scheduled after user other tasks
+        # def sort_key(i):
+        #     priority = self._priority_for_task(i)
+        #     group_ts = self._earliest_group_timestamp_for_task(i)
+        #     is_bank = (i.provider == "bank_statements")
+        #     user_tasks = task_count.get(i.user_id, 0)
 
-            global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
-            per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
+        #     global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
+        #     per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
 
-            # If queue internal age is >= 5 minutes, bank_statements become time-sensitive
-            # allow them to move earlier by removing penalties, but stil won't skip
-            # tasks thar have an older timestam because timestamp remains a later sort key.
+        #     # If queue internal age is >= 5 minutes, bank_statements become time-sensitive
+        #     # allow them to move earlier by removing penalties, but stil won't skip
+        #     # tasks thar have an older timestam because timestamp remains a later sort key.
 
-            if is_bank and queue_internal_age > 300:
-                global_bank_penalty = 0
-                per_user_bank_penalty = 0
+        #     if is_bank and queue_internal_age >= 300:
+        #         global_bank_penalty = 0
+        #         per_user_bank_penalty = 0
 
-            ts = self._timestamp_for_task(i)
-            return (priority, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
+        #     ts = self._timestamp_for_task(i)
+        #     return (priority, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
 
 
-        self._queue.sort(key=sort_key)
+        def cmp_items(a, b):
+            from functools import cmp_to_key
+
+            ta = self._timestamp_for_task(a)
+            tb = self._timestamp_for_task(b)
+            is_bank_a = (a.provider == "bank_statements")
+            is_bank_b = (b.provider == "bank_statements")
+            time_sensitive_a = is_bank_a and queue_internal_age >= 300
+            time_sensitive_b = is_bank_b and queue_internal_age >= 300
+
+            # If either side is a time-sensitive bank, enforce the "cannot skip older timestamps" rule pairwise.
+            # If timestamps differ:
+            if isinstance(ta, datetime) and isinstance(tb, datetime) and ta != tb:
+                if time_sensitive_a and tb < ta:
+                    # b has older timestamp than time-sensitive bank a -> b must come before a
+                    return 1
+                if time_sensitive_a and tb > ta:
+                    # a is older than b or allowed to move earlier -> a before b
+                    return -1
+                if time_sensitive_b and ta < tb:
+                    return -1
+                if time_sensitive_b and ta > tb:
+                    return 1
+            # Otherwise fall back to the previous lexicographic key
+            def key_components(i):
+                pr = self._priority_for_task(i)
+                group_ts = self._earliest_group_timestamp_for_task(i)
+                is_bank = (i.provider == "bank_statements")
+                user_tasks = task_count.get(i.user_id, 0)
+                global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
+                per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
+                ts = self._timestamp_for_task(i)
+                return (pr, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
+
+            ka = key_components(a)
+            kb = key_components(b)
+            # lexicographic compare
+            if ka < kb:
+                return -1
+            if ka > kb:
+                return 1
+            return 0
+
+        # use cmp_to_key to sort with pairwise comparator
+        self._queue.sort(key=cmp_to_key(cmp_items))
+
+        # self._queue.sort(key=sort_key)
 
         task = self._queue.pop(0)
 
@@ -316,6 +362,7 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
 
 
