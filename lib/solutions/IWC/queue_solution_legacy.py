@@ -89,15 +89,52 @@ class Queue:
         if isinstance(timestamp, str):
             return datetime.fromisoformat(timestamp).replace(tzinfo=None)
         return timestamp
+    
+    def _find_existing_index(self, user_id: int, provider: str):
+        for idx, t in enumerate(self._queue):
+            if t.user_id == user_id and t.provider == provider:
+                return idx
+        return None 
 
     def enqueue(self, item: TaskSubmission) -> int:
         tasks = [*self._collect_dependencies(item), item]
+
+        # track seen tasks
+        seen_in_batch = set[tuple[int, str]] = set()
 
         for task in tasks:
             metadata = task.metadata
             metadata.setdefault("priority", Priority.NORMAL)
             metadata.setdefault("group_earliest_timestamp", MAX_TIMESTAMP)
-            self._queue.append(task)
+
+            key = (task.user_id, task.provider)
+            if key in seen_in_batch:
+                # duplicate within same enqueue call -> resolve by timestamp ordering
+                # keep the earliest timestamp, skip is this one is later or replace if earlier
+                existing_idx = self._find_existing_index(task.user_id, task.provider)
+                if existing_idx is not None:
+                    existing_ts = self._timestamp_for_task(self._queue[existing_idx])
+                    new_ts = self._timestamp_for_task(task)
+                    if new_ts < existing_ts:
+                        # replace the queue with earlier task
+                        self._queue[existing_idx] = task
+                continue
+
+            seen_in_batch.add(key)
+
+            existing_idx = self._find_existing_index(task.user_id, task.provider)
+            if existing_idx is None:
+                # no duplicate in queue, append
+                self._queue.append(task)
+            else:
+                # duplicate exists in queue, resolve by timestamp ordering and keep earliest timestamp
+                existing_task = self._queue[existing_idx]
+                existing_ts = self._timestamp_for_task(existing_task)
+                new_ts = self._timestamp_for_task(task)
+                if new_ts < existing_ts:
+                    # replace the queue with earlier task
+                    self._queue[existing_idx] = task
+
         return self.size
 
     def dequeue(self):
