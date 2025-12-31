@@ -137,7 +137,18 @@ class Queue:
                     self._queue[existing_idx] = task
 
         return self.size
+    
+    def _bank_task_age_seconds(self, task: TaskSubmission) -> int | None:
+        """Return the bank task age in seconds relative to the newest task in the queue.
 
+        If task.timestamp or the queue has no valid datetimes, returns None.
+        """
+        newest = self._newest_timestamp_in_queue()
+        ts = self._timestamp_for_task(task)
+        if newest is None or not isinstance(ts, datetime):
+            return None
+        return int((newest - ts).total_seconds())
+    
     def dequeue(self):
         if self.size == 0:
             return None
@@ -360,4 +371,5 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
