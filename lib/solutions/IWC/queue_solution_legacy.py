@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
+from functools import cmp_to_key
 
 # LEGACY CODE ASSET
 # RESOLVED on deploy
@@ -200,7 +201,7 @@ class Queue:
 
 
         def cmp_items(a, b):
-            from functools import cmp_to_key
+            
 
             ta = self._timestamp_for_task(a)
             tb = self._timestamp_for_task(b)
@@ -362,6 +363,7 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
 
 
