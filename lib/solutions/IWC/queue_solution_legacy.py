@@ -100,7 +100,7 @@ class Queue:
         tasks = [*self._collect_dependencies(item), item]
 
         # track seen tasks
-        seen_in_batch = set[tuple[int, str]] = set()
+        seen_in_batch: set[tuple[int, str]] = set()
 
         for task in tasks:
             metadata = task.metadata
@@ -279,3 +279,4 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
