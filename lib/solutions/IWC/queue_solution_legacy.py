@@ -189,9 +189,9 @@ class Queue:
 
             # If queue internal age is >= 5 minutes, bank_statements become time-sensitive
             # allow them to move earlier by removing penalties, but stil won't skip
-            # tasks thar have an older timestam because timestam remains a later sort key.
+            # tasks thar have an older timestam because timestamp remains a later sort key.
 
-            if is_bank and self.age >= 300:
+            if is_bank and queue_internal_age >= 300:
                 global_bank_penalty = 0
                 per_user_bank_penalty = 0
 
@@ -316,6 +316,3 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
-
-
-

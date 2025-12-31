@@ -89,6 +89,3 @@ def test_time_sensitive_bank_allows_bank_to_advance_but_not_skip_older_via_run_q
         ]
     )
 
-
-
-
