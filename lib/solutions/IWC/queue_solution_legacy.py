@@ -170,6 +170,9 @@ class Queue:
             else:
                 metadata["group_earliest_timestamp"] = current_earliest
                 metadata["priority"] = priority_level
+        
+        # determine queue internal age once
+        queue_internal_age = self.age
 
         # Enforce bank statements deprioritisation
         # - if user has < 3 tasks, bank_statements tasks go to end of global queue
@@ -182,6 +185,14 @@ class Queue:
 
             global_bank_penalty = 1 if (is_bank and user_tasks < 3) else 0
             per_user_bank_penalty = 1 if (is_bank and user_tasks >= 3) else 0
+
+            # If queue internal age is >= 5 minutes, bank_statements become time-sensitive
+            # allow them to move earlier by removing penalties, but stil won't skip
+            # tasks thar have an older timestam because timestam remains a later sort key.
+
+            if is_bank and queue_internal_age >= 300:
+                global_bank_penalty = 0
+                per_user_bank_penalty = 0
 
             ts = self._timestamp_for_task(i)
             return (priority, group_ts, global_bank_penalty, per_user_bank_penalty, ts)
@@ -304,3 +315,4 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
