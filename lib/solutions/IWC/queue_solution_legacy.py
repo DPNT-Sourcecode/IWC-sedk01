@@ -205,7 +205,7 @@ class Queue:
             ta = self._timestamp_for_task(a)
             tb = self._timestamp_for_task(b)
             is_bank_a = (a.provider == "bank_statements")
-            is_bank_b = (b.provider == "companies_house" or b.provider == "bank_statements")
+            is_bank_b = (b.provider == "bank_statements")
             time_sensitive_a = is_bank_a and queue_internal_age >= 300
             time_sensitive_b = is_bank_b and queue_internal_age >= 300
 
@@ -360,3 +360,4 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
