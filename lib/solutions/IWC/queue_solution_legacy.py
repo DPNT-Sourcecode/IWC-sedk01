@@ -202,7 +202,19 @@ class Queue:
 
     @property
     def age(self):
-        return 0
+        """
+        Returns the age in seconds of the oldest task in the queue.
+        
+        Age is the gap between the newest and oldest task timestamps.
+        If the queue is empty, returns 0.
+        """
+        if not self._queue:
+            return 0
+
+        timestamps = [self._timestamp_for_task(t) for t in self._queue]
+        oldest = min(timestamps)
+        newest = max(timestamps)
+        return (newest - oldest).total_seconds()
 
     def purge(self):
         self._queue.clear()
@@ -291,4 +303,5 @@ async def queue_worker():
         logger.info(f"Finished task: {task}")
 ```
 """
+
 
